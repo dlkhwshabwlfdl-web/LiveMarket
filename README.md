@@ -6,6 +6,14 @@ A Paper plugin that turns a server's shop into a living market. Instead of fixed
 
 All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessage) — gradients, icons and clickable help — and the GUI talks back with click and trade sounds, estimated totals on every trade button, and a per-item detail view with a price chart, day change and daily volume.
 
+## Screenshots
+
+Captured in game (Minecraft 1.21.11, Paper server running LiveMarket 0.2.0):
+
+![LiveMarket shop GUI](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-shop.png)
+
+![LiveMarket item detail view](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-detail.png)
+
 ## How it works
 
 - **Live prices** — each tradable item has a base price and a live price that moves with trading activity.
@@ -29,12 +37,12 @@ All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessa
 | `/market sellall` | `livemarket.sell` | Sell everything tradable in your inventory |
 | `/market price [item]` | `livemarket.use` | Price of one item, or the whole list |
 | `/market top` | `livemarket.use` | Biggest price movers today |
-| `/market alert <item> <above\|below> <price>` | `livemarket.use` | Get a chat message when the price crosses your target (fires once, then clears) |
+| `/market alert <item> <above|below> <price>` | `livemarket.use` | Get a chat message when the price crosses your target (fires once, then clears) |
 | `/market alert <item> remove` / `/market alerts` | `livemarket.use` | Remove / list your alerts |
 | `/market reload` | `livemarket.admin` | Reload config and messages |
 | `/market setprice <item> <price>` | `livemarket.admin` | Set an exact price (logged) |
 | `/market reset <item>` | `livemarket.admin` | Return an item to its base price |
-| `/market debug [on\|off]` | `livemarket.admin` | Toggle verbose mechanism logging (see below) |
+| `/market debug [on|off]` | `livemarket.admin` | Toggle verbose mechanism logging (see below) |
 
 The GUI mirrors the commands: the shop front groups items by category with live prices and trend arrows; clicking an item opens a detail view with a price-history chart (coloured glass panes) and buy/sell buttons for 1 / 8 / 32 / 64.
 
