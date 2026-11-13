@@ -9,18 +9,72 @@ A Paper plugin that turns a server's shop into a living market. Instead of fixed
 - **Live prices** — each tradable item has a base price and a live price that moves with trading activity.
 - **Supply & demand** — buying an item raises its price; selling lowers it. Prices drift back toward their base value over time, so the market never gets stuck.
 - **A living economy** — items players actually want become valuable, and farming a single crop forever stops paying off.
+- **Un-farmable by design** — price impact saturates, every item has a hard floor and ceiling, a configurable sales fee applies, and a daily volume guard dampens repeat crashes/pumps.
 
-## Planned features
+## Installation
 
-- Configurable items, base prices, and price sensitivity per item
-- Buy/sell shop with live prices (commands and GUI)
-- Price history and market trends
-- Anti-inflation safeguards and admin controls
+1. You need a Paper 1.21.x server, Java 21, [Vault](https://www.spigotmc.org/resources/vault.34315/), and any economy plugin that provides a Vault economy (EssentialsX works).
+2. Drop `LiveMarket-0.1.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
+3. Edit `plugins/LiveMarket/config.yml` (items, prices, formula constants) and `messages.yml` (every player-facing string), then run `/market reload`.
+
+## Commands & permissions
+
+| Command | Permission | What it does |
+| --- | --- | --- |
+| `/market` | `livemarket.use` | Open the market GUI |
+| `/market buy <item> [amount]` | `livemarket.sell` | Buy items at the current price |
+| `/market sell <item> [amount]` | `livemarket.sell` | Sell items (fee applies) |
+| `/market sellall` | `livemarket.sell` | Sell everything tradable in your inventory |
+| `/market price [item]` | `livemarket.use` | Price of one item, or the whole list |
+| `/market top` | `livemarket.use` | Biggest price movers today |
+| `/market alert <item> <above\|below> <price>` | `livemarket.use` | Get a chat message when the price crosses your target (fires once, then clears) |
+| `/market alert <item> remove` / `/market alerts` | `livemarket.use` | Remove / list your alerts |
+| `/market reload` | `livemarket.admin` | Reload config and messages |
+| `/market setprice <item> <price>` | `livemarket.admin` | Set an exact price (logged) |
+| `/market reset <item>` | `livemarket.admin` | Return an item to its base price |
+
+The GUI mirrors the commands: the shop front groups items by category with live prices and trend arrows; clicking an item opens a detail view with a price-history chart (coloured glass panes) and buy/sell buttons for 1 / 8 / 32 / 64.
+
+## The pricing formula (plain English)
+
+A trade of *n* units moves the price by a fraction of its current value:
+
+```
+move = max-move × n / (n + pressure-k)
+```
+
+- Buys move the price **up**, sells move it **down**, always by that fraction of the current price.
+- The fraction **saturates**: with the defaults (`max-move` 0.30, `pressure-k` 48), selling 48 units moves the price about 15%, selling 480 moves it about 27%, and no single trade — however huge — can move it more than 30%. Bulk farming hits diminishing returns instead of printing money.
+- The result is clamped to the item's **floor** and **ceiling**, always.
+- When nobody trades, each price closes 1% of its gap back to its **base** price every minute (`decay-per-minute`), so a crashed market recovers on its own.
+- Sales pay `price × (1 − tax-rate)`; the default fee is 5%.
+- Once an item's total traded volume for the day passes `daily-volume-guard` (default 10,000 units), further price impact is multiplied by `impact-beyond-guard` (default 0.25) until midnight.
+
+Trades execute at the price shown before the trade; the impact lands right after. Prices, history, daily volumes and alerts persist in `plugins/LiveMarket/data.yml` across restarts, and saves happen off the main thread.
+
+## Configuration
+
+`config.yml` holds the formula constants under `settings:` and every tradable item under `items:` with its `category`, `base`, `floor` and `ceiling`. The defaults ship 19 items across Farming, Wood, Mining and Mob drops. `messages.yml` contains every player-facing string — no messages are hardcoded.
+
+## Building from source
+
+Requires JDK 21 and Maven 3.9+:
+
+```
+mvn package
+```
+
+The plugin jar lands in `target/LiveMarket-0.1.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
+
+## Roadmap
+
 - PlaceholderAPI support for displaying prices
+- Optional MySQL persistence
+- More chart ranges in the GUI detail view
 
 ## Status
 
-🚧 In early development — the plugin is being built, and the first release will be published here when it's ready.
+**v0.1.0** — first release. Verified on Paper 1.21.11 with Vault + EssentialsX: clean load, GUI and command trading, prices moving both ways within their floor/ceiling, and state surviving a restart.
 
 ## License
 

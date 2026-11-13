@@ -1,0 +1,22 @@
+name: LiveMarket
+version: ${project.version}
+main: me.abol.livemarket.LiveMarket
+api-version: '1.21'
+author: Abol
+description: Dynamic pricing plugin for survival Paper servers — prices move with supply and demand.
+depend: [Vault]
+commands:
+  market:
+    description: Open the market, or buy/sell/price-check items whose prices move with supply and demand.
+    usage: /market [buy|sell|sellall|price|top|alert|alerts|reload|setprice|reset]
+    aliases: [lm]
+permissions:
+  livemarket.use:
+    description: Use the market (open GUI, price checks, top movers, alerts).
+    default: true
+  livemarket.sell:
+    description: Buy and sell on the market.
+    default: true
+  livemarket.admin:
+    description: Administer LiveMarket (reload, setprice, reset).
+    default: op

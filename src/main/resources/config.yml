@@ -1,0 +1,44 @@
+# LiveMarket configuration
+# Prices move with supply and demand. Every tradable item has a base price
+# (where it drifts back to over time), a floor and a ceiling it can never
+# leave. See the README for the formula in plain English.
+
+settings:
+  # Saturation constant of the pricing formula: a trade of this many units
+  # reaches half of the maximum per-trade price impact.
+  pressure-k: 48
+  # Maximum fraction the price may move in a single trade (0.30 = 30%).
+  max-move: 0.30
+  # Each minute, every price closes this fraction of its gap back to base.
+  decay-per-minute: 0.01
+  # Fraction taken off every sale (0.05 = 5% market fee).
+  tax-rate: 0.05
+  # Once an item's total traded volume for the day passes this many units,
+  # its price impact is reduced to impact-beyond-guard until midnight.
+  daily-volume-guard: 10000
+  impact-beyond-guard: 0.25
+  # How many price points of history to keep per item.
+  history-size: 50
+
+# Tradable items. material = Bukkit material name; base/floor/ceiling are
+# prices per single unit in your economy's currency.
+items:
+  WHEAT:        { category: Farming,   base: 2.0,   floor: 0.5,   ceiling: 8.0 }
+  CARROT:       { category: Farming,   base: 1.5,   floor: 0.4,   ceiling: 6.0 }
+  POTATO:       { category: Farming,   base: 1.5,   floor: 0.4,   ceiling: 6.0 }
+  PUMPKIN:      { category: Farming,   base: 4.0,   floor: 1.0,   ceiling: 16.0 }
+  MELON_SLICE:  { category: Farming,   base: 1.0,   floor: 0.25,  ceiling: 4.0 }
+  SUGAR_CANE:   { category: Farming,   base: 1.2,   floor: 0.3,   ceiling: 5.0 }
+  OAK_LOG:      { category: Wood,      base: 2.2,   floor: 0.6,   ceiling: 9.0 }
+  COBBLESTONE:  { category: Mining,    base: 0.5,   floor: 0.1,   ceiling: 2.0 }
+  COAL:         { category: Mining,    base: 3.0,   floor: 0.8,   ceiling: 12.0 }
+  REDSTONE:     { category: Mining,    base: 4.0,   floor: 1.0,   ceiling: 16.0 }
+  LAPIS_LAZULI: { category: Mining,    base: 5.0,   floor: 1.2,   ceiling: 20.0 }
+  IRON_INGOT:   { category: Mining,    base: 12.0,  floor: 3.0,   ceiling: 48.0 }
+  GOLD_INGOT:   { category: Mining,    base: 25.0,  floor: 6.0,   ceiling: 100.0 }
+  EMERALD:      { category: Mining,    base: 90.0,  floor: 25.0,  ceiling: 360.0 }
+  DIAMOND:      { category: Mining,    base: 120.0, floor: 30.0,  ceiling: 480.0 }
+  ROTTEN_FLESH: { category: Mob drops, base: 0.4,   floor: 0.1,   ceiling: 1.6 }
+  BONE:         { category: Mob drops, base: 2.5,   floor: 0.6,   ceiling: 10.0 }
+  STRING:       { category: Mob drops, base: 2.0,   floor: 0.5,   ceiling: 8.0 }
+  GUNPOWDER:    { category: Mob drops, base: 6.0,   floor: 1.5,   ceiling: 24.0 }
