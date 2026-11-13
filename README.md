@@ -4,10 +4,6 @@
 
 A Paper plugin that turns a server's shop into a living market. Instead of fixed prices, every item's price reacts to what players actually buy and sell: high demand pushes prices up, oversupply pushes them down.
 
-![The LiveMarket shop GUI](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-shop.png)
-
-*The shop front: items grouped by category, a balance readout, and live prices in the item lore. Rendered from the plugin's actual GUI layout and the game's own textures.*
-
 All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessage) — gradients, icons and clickable help — and the GUI talks back with click and trade sounds, estimated totals on every trade button, and a per-item detail view with a price chart, day change and daily volume.
 
 ## How it works
