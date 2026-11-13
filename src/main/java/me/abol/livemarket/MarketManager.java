@@ -22,12 +22,14 @@ public final class MarketManager {
     private final PriceEngine engine;
     private final DataStore store;
     private final Economy economy;
+    private final Debug debug;
 
-    public MarketManager(LiveMarket plugin, PriceEngine engine, DataStore store, Economy economy) {
+    public MarketManager(LiveMarket plugin, PriceEngine engine, DataStore store, Economy economy, Debug debug) {
         this.plugin = plugin;
         this.engine = engine;
         this.store = store;
         this.economy = economy;
+        this.debug = debug;
     }
 
     public Economy economy() {
@@ -41,34 +43,47 @@ public final class MarketManager {
     public record TradeOutcome(Result result, double total, double newPrice) {}
 
     public TradeOutcome buy(Player player, Material material, int amount) {
-        if (!player.hasPermission("livemarket.sell")) {
-            return new TradeOutcome(Result.NO_PERMISSION, 0, engine.price(material));
-        }
         double unit = engine.price(material);
         double cost = unit * amount;
-        if (economy.getBalance(player) < cost) {
+        String who = "player=" + player.getName() + " item=" + material.name() + " side=BUY amount=" + amount;
+        if (!player.hasPermission("livemarket.sell")) {
+            debug.log("TRADE", who + " result=NO_PERMISSION");
+            return new TradeOutcome(Result.NO_PERMISSION, 0, unit);
+        }
+        double balance = economy.getBalance(player);
+        if (balance < cost) {
+            debug.log("TRADE", who + " result=NOT_ENOUGH_MONEY cost=" + Debug.f(cost) + " balance=" + Debug.f(balance));
             return new TradeOutcome(Result.NOT_ENOUGH_MONEY, cost, unit);
         }
-        if (freeCapacity(player.getInventory(), material) < amount) {
+        int capacity = freeCapacity(player.getInventory(), material);
+        if (capacity < amount) {
+            debug.log("TRADE", who + " result=INVENTORY_FULL capacity=" + capacity);
             return new TradeOutcome(Result.INVENTORY_FULL, cost, unit);
         }
         EconomyResponse response = economy.withdrawPlayer(player, cost);
         if (!response.transactionSuccess()) {
+            debug.log("TRADE", who + " result=ECONOMY_ERROR vault=" + response.errorMessage);
             return new TradeOutcome(Result.ECONOMY_ERROR, cost, unit);
         }
         player.getInventory().addItem(new ItemStack(material, amount));
         engine.applyTrade(material, amount, true);
         store.markDirty();
         plugin.checkAlerts(material);
+        debug.log("TRADE", who + " result=OK unit=" + Debug.f(unit) + " total=" + Debug.f(cost)
+                + " balanceAfter=" + Debug.f(economy.getBalance(player)));
         return new TradeOutcome(Result.OK, cost, engine.price(material));
     }
 
     public TradeOutcome sell(Player player, Material material, int amount) {
+        String who = "player=" + player.getName() + " item=" + material.name() + " side=SELL amount=" + amount;
         if (!player.hasPermission("livemarket.sell")) {
+            debug.log("TRADE", who + " result=NO_PERMISSION");
             return new TradeOutcome(Result.NO_PERMISSION, 0, engine.price(material));
         }
         PlayerInventory inventory = player.getInventory();
-        if (countItems(inventory, material) < amount) {
+        int have = countItems(inventory, material);
+        if (have < amount) {
+            debug.log("TRADE", who + " result=NOT_ENOUGH_ITEMS have=" + have);
             return new TradeOutcome(Result.NOT_ENOUGH_ITEMS, 0, engine.price(material));
         }
         double unit = engine.price(material);
@@ -80,11 +95,15 @@ public final class MarketManager {
         EconomyResponse response = economy.depositPlayer(player, gain);
         if (!response.transactionSuccess()) {
             inventory.addItem(new ItemStack(material, amount)); // give the items back
+            debug.log("TRADE", who + " result=ECONOMY_ERROR vault=" + response.errorMessage + " itemsRestored=true");
             return new TradeOutcome(Result.ECONOMY_ERROR, 0, unit);
         }
         engine.applyTrade(material, amount, false);
         store.markDirty();
         plugin.checkAlerts(material);
+        debug.log("TRADE", who + " result=OK unit=" + Debug.f(unit) + " gross=" + Debug.f(gross)
+                + " gain=" + Debug.f(gain) + " taxRate=" + engine.taxRate()
+                + " balanceAfter=" + Debug.f(economy.getBalance(player)));
         return new TradeOutcome(Result.OK, gain, engine.price(material));
     }
 

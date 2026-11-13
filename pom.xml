@@ -7,7 +7,7 @@
 
     <groupId>me.abol</groupId>
     <artifactId>LiveMarket</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>jar</packaging>
     <name>LiveMarket</name>
     <description>Dynamic pricing plugin for survival Paper servers — prices move with supply and demand.</description>

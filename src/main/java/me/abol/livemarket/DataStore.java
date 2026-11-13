@@ -24,18 +24,21 @@ public final class DataStore {
 
     private final LiveMarket plugin;
     private final PriceEngine engine;
+    private final Debug debug;
     private final File file;
     private final Map<UUID, List<Alert>> alerts = new HashMap<>();
     private volatile boolean dirty = false;
 
-    public DataStore(LiveMarket plugin, PriceEngine engine) {
+    public DataStore(LiveMarket plugin, PriceEngine engine, Debug debug) {
         this.plugin = plugin;
         this.engine = engine;
+        this.debug = debug;
         this.file = new File(plugin.getDataFolder(), "data.yml");
     }
 
     public void load() {
         if (!file.exists()) {
+            debug.log("STORE", "load skipped — no data.yml yet (fresh start)");
             return;
         }
         YamlConfiguration data = YamlConfiguration.loadConfiguration(file);
@@ -109,6 +112,10 @@ public final class DataStore {
                 }
             }
         }
+        int alertCount = alerts.values().stream().mapToInt(List::size).sum();
+        debug.log("STORE", "loaded data.yml day=" + engine.currentDay()
+                + " items=" + engine.allStates().size() + " alerts=" + alertCount
+                + " bytes=" + file.length());
     }
 
     public void markDirty() {
@@ -140,6 +147,7 @@ public final class DataStore {
             data.set("alerts." + entry.getKey(), encoded);
         }
         String text = data.saveToString();
+        debug.log("STORE", "save scheduled bytes=" + text.length() + " items=" + engine.allStates().size());
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
@@ -186,6 +194,8 @@ public final class DataStore {
         alerts.computeIfAbsent(player, k -> new ArrayList<>())
                 .removeIf(a -> a.material() == alert.material());
         alerts.get(player).add(alert);
+        debug.log("ALERT", "SET player=" + player + " item=" + alert.material().name()
+                + " condition=" + (alert.above() ? "above" : "below") + " target=" + Debug.f(alert.target()));
         markDirty();
     }
 

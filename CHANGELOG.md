@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-11-13
+
+Modernization + a built-in analysis mode.
+
+- All player-facing text moved to MiniMessage (Adventure): gradient titles,
+  icons, thousands separators, and click-to-suggest help. No legacy colour
+  codes remain; messages.yml is pure MiniMessage now.
+- GUI polish: framed shop front with a balance readout, richer item lore
+  (live price, trend, day change, daily volume), detail view shows the
+  floor/ceiling range and a sparkline, trade buttons show estimated totals,
+  and clicks/trades play sounds.
+- New debug mode: `settings.debug` in config.yml or `/market debug on|off`
+  (admin). Every mechanism — pricing math, trade validation, Vault results,
+  decay, alerts, GUI clicks, persistence, commands — writes one structured
+  `[LiveMarket-Debug]` line per event to the server log, with every number
+  needed to re-derive the result.
+- Verified end-to-end on Paper 1.21.11 + Vault + EssentialsX with a bot
+  player running the full mechanism matrix against the debug log.
+
+
 ## 0.1.0 — 2026-11-13
 
 First release.

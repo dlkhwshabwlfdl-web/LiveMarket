@@ -4,6 +4,10 @@
 # leave. See the README for the formula in plain English.
 
 settings:
+  # Verbose mechanism logging (pricing math, trades, alerts, GUI, storage)
+  # for analysis in the server log. Can also be toggled live with
+  # /market debug on|off (admin). Leave off in normal operation.
+  debug: false
   # Saturation constant of the pricing formula: a trade of this many units
   # reaches half of the maximum per-trade price impact.
   pressure-k: 48

@@ -67,6 +67,11 @@ public final class PriceEngine {
     private double impactBeyondGuard = 0.25;
     private int historySize = 50;
     private String currentDay = LocalDate.now().toString();
+    private Debug debug;
+
+    public void setDebug(Debug debug) {
+        this.debug = debug;
+    }
 
     /** (Re)read item definitions and formula constants from the config. */
     public void loadConfig(LiveMarket plugin) {
@@ -139,12 +144,25 @@ public final class PriceEngine {
         }
         double fraction = (double) amount / ((double) amount + pressureK);
         double move = maxMove * fraction;
-        if (state.dailyVolume > dailyVolumeGuard) {
+        boolean guard = state.dailyVolume > dailyVolumeGuard;
+        if (guard) {
             move *= impactBeyondGuard;
         }
-        double next = buy ? state.price * (1 + move) : state.price * (1 - move);
+        double before = state.price;
+        double raw = buy ? before * (1 + move) : before * (1 - move);
+        double next = clamp(raw, def);
+        boolean clamped = next != raw;
         setPrice(state, def, next);
         state.dailyVolume += amount;
+        if (debug != null) {
+            debug.log("PRICE", "item=" + material.name() + " side=" + (buy ? "BUY" : "SELL")
+                    + " amount=" + amount + " frac=" + Debug.f(fraction)
+                    + " movePct=" + Debug.pct(buy ? move : -move)
+                    + " before=" + Debug.f(before) + " raw=" + Debug.f(raw)
+                    + " after=" + Debug.f(state.price) + " clamped=" + clamped
+                    + " floor=" + def.floor + " ceiling=" + def.ceiling
+                    + " guard=" + guard + " dailyVolume=" + state.dailyVolume);
+        }
     }
 
     /** One minute of quiet-market decay toward base prices. */
@@ -153,14 +171,28 @@ public final class PriceEngine {
         if (decayPerMinute <= 0) {
             return;
         }
+        int adjusted = 0;
+        Material biggest = null;
+        double biggestMove = 0;
         for (Map.Entry<Material, ItemState> entry : states.entrySet()) {
             ItemDef def = defs.get(entry.getKey());
             ItemState state = entry.getValue();
             double gap = def.base - state.price;
             if (Math.abs(gap) > 0.001) {
                 double next = state.price + gap * decayPerMinute;
+                double applied = clamp(next, def) - state.price;
                 state.price = clamp(next, def);
+                adjusted++;
+                if (Math.abs(applied) > Math.abs(biggestMove)) {
+                    biggestMove = applied;
+                    biggest = entry.getKey();
+                }
             }
+        }
+        if (debug != null && adjusted > 0) {
+            debug.log("DECAY", "adjusted=" + adjusted + " rate=" + decayPerMinute
+                    + (biggest != null ? " biggest=" + biggest.name() + " move=" + Debug.f(biggestMove)
+                    + " price=" + Debug.f(states.get(biggest).price) : ""));
         }
     }
 
@@ -193,21 +225,21 @@ public final class PriceEngine {
         return Math.min(def.ceiling, Math.max(def.floor, value));
     }
 
-    /** Trend of the current price versus the oldest kept history point. */
+    /** Trend of the current price versus the oldest kept history point (MiniMessage). */
     public String trend(Material material) {
         ItemState state = states.get(material);
         if (state == null || state.history.size() < 2) {
-            return "&7—";
+            return "<gray>—</gray>";
         }
         double first = state.history.peekFirst();
         double change = (state.price - first) / first;
         if (change > 0.02) {
-            return "&a▲";
+            return "<green>▲</green>";
         }
         if (change < -0.02) {
-            return "&c▼";
+            return "<red>▼</red>";
         }
-        return "&7—";
+        return "<gray>—</gray>";
     }
 
     /** Signed percent change since the start of today. */

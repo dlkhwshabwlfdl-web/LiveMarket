@@ -20,6 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class LiveMarket extends JavaPlugin {
 
     private Msg msg;
+    private Debug debug;
     private PriceEngine engine;
     private DataStore store;
     private MarketManager manager;
@@ -32,10 +33,12 @@ public final class LiveMarket extends JavaPlugin {
             saveResource("messages.yml", false);
         }
         msg = new Msg(this);
+        debug = new Debug(this, getConfig().getBoolean("settings.debug", false));
 
         engine = new PriceEngine();
+        engine.setDebug(debug);
         engine.loadConfig(this);
-        store = new DataStore(this, engine);
+        store = new DataStore(this, engine, debug);
         store.load();
 
         Economy economy = setupEconomy();
@@ -45,8 +48,8 @@ public final class LiveMarket extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        manager = new MarketManager(this, engine, store, economy);
-        gui = new MarketGui(this, engine, manager);
+        manager = new MarketManager(this, engine, store, economy, debug);
+        gui = new MarketGui(this, engine, manager, debug);
 
         MarketCommand command = new MarketCommand(this, engine, manager, store, gui);
         var market = getCommand("market");
@@ -99,6 +102,9 @@ public final class LiveMarket extends JavaPlugin {
         double price = engine.price(material);
         for (Player player : getServer().getOnlinePlayers()) {
             for (DataStore.Alert fired : store.collectTriggered(player.getUniqueId(), material, price)) {
+                debug.log("ALERT", "FIRED player=" + player.getName() + " item=" + material.name()
+                        + " condition=" + (fired.above() ? "above" : "below")
+                        + " target=" + Debug.f(fired.target()) + " price=" + Debug.f(price));
                 msg.send(player, "alert-fired",
                         "item", MarketGui.pretty(material),
                         "price", Msg.money(price),
@@ -121,6 +127,10 @@ public final class LiveMarket extends JavaPlugin {
 
     public Msg msg() {
         return msg;
+    }
+
+    public Debug debug() {
+        return debug;
     }
 
     public PriceEngine engine() {

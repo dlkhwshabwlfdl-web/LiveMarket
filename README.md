@@ -4,6 +4,12 @@
 
 A Paper plugin that turns a server's shop into a living market. Instead of fixed prices, every item's price reacts to what players actually buy and sell: high demand pushes prices up, oversupply pushes them down.
 
+![The LiveMarket shop GUI](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-shop.png)
+
+*The shop front: items grouped by category, a balance readout, and live prices in the item lore. Rendered from the plugin's actual GUI layout and the game's own textures.*
+
+All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessage) — gradients, icons and clickable help — and the GUI talks back with click and trade sounds, estimated totals on every trade button, and a per-item detail view with a price chart, day change and daily volume.
+
 ## How it works
 
 - **Live prices** — each tradable item has a base price and a live price that moves with trading activity.
@@ -14,7 +20,7 @@ A Paper plugin that turns a server's shop into a living market. Instead of fixed
 ## Installation
 
 1. You need a Paper 1.21.x server, Java 21, [Vault](https://www.spigotmc.org/resources/vault.34315/), and any economy plugin that provides a Vault economy (EssentialsX works).
-2. Drop `LiveMarket-0.1.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
+2. Drop `LiveMarket-0.2.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
 3. Edit `plugins/LiveMarket/config.yml` (items, prices, formula constants) and `messages.yml` (every player-facing string), then run `/market reload`.
 
 ## Commands & permissions
@@ -32,6 +38,7 @@ A Paper plugin that turns a server's shop into a living market. Instead of fixed
 | `/market reload` | `livemarket.admin` | Reload config and messages |
 | `/market setprice <item> <price>` | `livemarket.admin` | Set an exact price (logged) |
 | `/market reset <item>` | `livemarket.admin` | Return an item to its base price |
+| `/market debug [on\|off]` | `livemarket.admin` | Toggle verbose mechanism logging (see below) |
 
 The GUI mirrors the commands: the shop front groups items by category with live prices and trend arrows; clicking an item opens a detail view with a price-history chart (coloured glass panes) and buy/sell buttons for 1 / 8 / 32 / 64.
 
@@ -54,7 +61,18 @@ Trades execute at the price shown before the trade; the impact lands right after
 
 ## Configuration
 
-`config.yml` holds the formula constants under `settings:` and every tradable item under `items:` with its `category`, `base`, `floor` and `ceiling`. The defaults ship 19 items across Farming, Wood, Mining and Mob drops. `messages.yml` contains every player-facing string — no messages are hardcoded.
+`config.yml` holds the formula constants under `settings:` and every tradable item under `items:` with its `category`, `base`, `floor` and `ceiling`. The defaults ship 19 items across Farming, Wood, Mining and Mob drops. `messages.yml` contains every player-facing string in MiniMessage format — no messages are hardcoded.
+
+## Debug mode
+
+Set `settings.debug: true` in `config.yml`, or toggle it live with `/market debug on`. Every mechanism then writes one structured, greppable line per event to the server log:
+
+```
+[LiveMarket-Debug][PRICE] item=WHEAT side=BUY amount=64 frac=0.5714 movePct=+17.14% before=2.0000 raw=2.3429 after=2.3429 clamped=false floor=0.5 ceiling=8.0 guard=false dailyVolume=64
+[LiveMarket-Debug][TRADE] player=Steve item=WHEAT side=BUY amount=64 result=OK unit=2.0000 total=128.0000 balanceAfter=99872.0000
+```
+
+Categories: `PRICE` (full formula breakdown), `TRADE` (validation result and Vault totals), `DECAY`, `ALERT`, `GUI`, `STORE`, `CMD`. Every number the engine used is in the line, so any result can be re-derived from the log alone — that is how the plugin's own test suite verifies it. Leave debug off in normal operation.
 
 ## Building from source
 
@@ -64,7 +82,7 @@ Requires JDK 21 and Maven 3.9+:
 mvn package
 ```
 
-The plugin jar lands in `target/LiveMarket-0.1.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
+The plugin jar lands in `target/LiveMarket-0.2.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
 
 ## Roadmap
 
@@ -74,7 +92,7 @@ The plugin jar lands in `target/LiveMarket-0.1.0.jar`. (The project uses Maven l
 
 ## Status
 
-**v0.1.0** — first release. Verified on Paper 1.21.11 with Vault + EssentialsX: clean load, GUI and command trading, prices moving both ways within their floor/ceiling, and state surviving a restart.
+**v0.2.0** — modernization release. Every mechanism is verified on Paper 1.21.11 with Vault + EssentialsX using the built-in debug mode: a bot player turned debug on in-game and ran the full matrix — formula-exact buys/sells, floor and ceiling clamps, the daily-volume guard dampening impact, fee math, not-enough-money / not-enough-items / inventory-full rejections with nothing charged, invalid input, sell-all, price alerts firing on a crossing, GUI navigation and trades, price decay toward base, and `/market debug` itself.
 
 ## License
 

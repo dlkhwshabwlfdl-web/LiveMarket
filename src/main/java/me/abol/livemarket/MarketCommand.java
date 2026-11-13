@@ -31,6 +31,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         Msg msg = plugin.msg();
+        plugin.debug().log("CMD", "sender=" + sender.getName() + " /market " + String.join(" ", args));
         if (args.length == 0) {
             if (sender instanceof Player player) {
                 if (!player.hasPermission("livemarket.use")) {
@@ -55,6 +56,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
                 plugin.reloadAll();
                 msg.send(sender, "reloaded");
             });
+            case "debug" -> debugToggle(sender, args);
             case "setprice" -> setPrice(sender, args);
             case "reset" -> reset(sender, args);
             case "help" -> sendHelp(sender);
@@ -292,6 +294,22 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
         });
     }
 
+    /** /market debug [on|off] — toggles the verbose mechanism logging. */
+    private void debugToggle(CommandSender sender, String[] args) {
+        admin(sender, () -> {
+            boolean target;
+            if (args.length >= 2 && args[1].equalsIgnoreCase("off")) {
+                target = false;
+            } else if (args.length >= 2 && args[1].equalsIgnoreCase("on")) {
+                target = true;
+            } else {
+                target = !plugin.debug().enabled();
+            }
+            plugin.debug().setEnabled(target);
+            plugin.msg().send(sender, target ? "debug-on" : "debug-off");
+        });
+    }
+
     private void admin(CommandSender sender, Runnable action) {
         if (!sender.hasPermission("livemarket.admin")) {
             plugin.msg().send(sender, "no-permission");
@@ -324,7 +342,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(CommandSender sender) {
         for (String line : plugin.msg().list("help")) {
-            sender.sendMessage(Msg.color(line));
+            sender.sendMessage(plugin.msg().parse(line));
         }
     }
 
@@ -366,9 +384,15 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
             for (String sub : List.of("buy", "sell", "sellall", "price", "top", "alert", "alerts",
-                    "reload", "setprice", "reset", "help")) {
+                    "reload", "setprice", "reset", "debug", "help")) {
                 if (sub.startsWith(args[0].toLowerCase(Locale.ROOT))) {
                     out.add(sub);
+                }
+            }
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
+            for (String option : List.of("on", "off")) {
+                if (option.startsWith(args[1].toLowerCase(Locale.ROOT))) {
+                    out.add(option);
                 }
             }
         } else if (args.length == 2 && List.of("buy", "sell", "price", "alert", "setprice", "reset")
