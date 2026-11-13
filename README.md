@@ -37,12 +37,12 @@ Captured in game (Minecraft 1.21.11, Paper server running LiveMarket 0.2.0):
 | `/market sellall` | `livemarket.sell` | Sell everything tradable in your inventory |
 | `/market price [item]` | `livemarket.use` | Price of one item, or the whole list |
 | `/market top` | `livemarket.use` | Biggest price movers today |
-| `/market alert <item> <above|below> <price>` | `livemarket.use` | Get a chat message when the price crosses your target (fires once, then clears) |
+| `/market alert <item> <above\|below> <price>` | `livemarket.use` | Get a chat message when the price crosses your target (fires once, then clears) |
 | `/market alert <item> remove` / `/market alerts` | `livemarket.use` | Remove / list your alerts |
 | `/market reload` | `livemarket.admin` | Reload config and messages |
 | `/market setprice <item> <price>` | `livemarket.admin` | Set an exact price (logged) |
 | `/market reset <item>` | `livemarket.admin` | Return an item to its base price |
-| `/market debug [on|off]` | `livemarket.admin` | Toggle verbose mechanism logging (see below) |
+| `/market debug [on\|off]` | `livemarket.admin` | Toggle verbose mechanism logging (see below) |
 
 The GUI mirrors the commands: the shop front groups items by category with live prices and trend arrows; clicking an item opens a detail view with a price-history chart (coloured glass panes) and buy/sell buttons for 1 / 8 / 32 / 64.
 
