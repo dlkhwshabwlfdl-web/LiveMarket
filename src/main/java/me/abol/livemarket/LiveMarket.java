@@ -59,6 +59,15 @@ public final class LiveMarket extends JavaPlugin {
         }
         getServer().getPluginManager().registerEvents(gui, this);
 
+        // PlaceholderAPI is optional: when it is present, expose the live
+        // market as %livemarket_...% placeholders (scoreboards, chat, signs).
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            boolean registered = new Placeholders(this, engine).register();
+            getLogger().info(registered
+                    ? "PlaceholderAPI expansion registered (%livemarket_...%)."
+                    : "PlaceholderAPI expansion failed to register.");
+        }
+
         // Quiet markets drift back to base prices, one step per minute.
         getServer().getScheduler().runTaskTimer(this, () -> {
             engine.decayTick();
