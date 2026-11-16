@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 — 2026-11-14
+
+PlaceholderAPI support.
+
+- New `%livemarket_...%` placeholders, registered only when PlaceholderAPI
+  is present (soft dependency — the plugin runs fine without it):
+  `price_<item>`, `base_<item>`, `floor_<item>`, `ceiling_<item>`,
+  `change_<item>` (signed day change, e.g. `+17.14%`), `trend_<item>`
+  (▲/▼/—), `volume_<item>` (units traded today), `top_<n>_item`,
+  `top_<n>_price`, `top_<n>_change`, and `count`. Item names are
+  case-insensitive (`%livemarket_price_wheat%`); unknown items or ranks
+  are left unparsed instead of returning a made-up value.
+- Verified end-to-end on Paper 1.21.11 + Vault + EssentialsX + PlaceholderAPI
+  2.12.3 with a bot player: every placeholder parsed to the exact live
+  value before and after a trade moved the price (WHEAT 2.00 → 2.34).
+
 ## 0.2.0 — 2026-11-13
 
 Modernization + a built-in analysis mode.

@@ -4,15 +4,13 @@
 
 A Paper plugin that turns a server's shop into a living market. Instead of fixed prices, every item's price reacts to what players actually buy and sell: high demand pushes prices up, oversupply pushes them down.
 
+![The LiveMarket shop GUI, in game](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-shop.png)
+
+*The shop front, captured in game (Minecraft 1.21.11): items grouped by category, live price, trend and daily volume in the item lore, and a balance readout on the gold ingot.*
+
+![An item detail view, in game](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-detail.png)
+
 All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessage) — gradients, icons and clickable help — and the GUI talks back with click and trade sounds, estimated totals on every trade button, and a per-item detail view with a price chart, day change and daily volume.
-
-## Screenshots
-
-Captured in game (Minecraft 1.21.11, Paper server running LiveMarket 0.2.0):
-
-![LiveMarket shop GUI](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-shop.png)
-
-![LiveMarket item detail view](https://github.com/dlkhwshabwlfdl-web/LiveMarket/releases/download/v0.2.0/gui-detail.png)
 
 ## How it works
 
@@ -24,7 +22,7 @@ Captured in game (Minecraft 1.21.11, Paper server running LiveMarket 0.2.0):
 ## Installation
 
 1. You need a Paper 1.21.x server, Java 21, [Vault](https://www.spigotmc.org/resources/vault.34315/), and any economy plugin that provides a Vault economy (EssentialsX works).
-2. Drop `LiveMarket-0.2.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
+2. Drop `LiveMarket-0.3.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
 3. Edit `plugins/LiveMarket/config.yml` (items, prices, formula constants) and `messages.yml` (every player-facing string), then run `/market reload`.
 
 ## Commands & permissions
@@ -78,6 +76,24 @@ Set `settings.debug: true` in `config.yml`, or toggle it live with `/market debu
 
 Categories: `PRICE` (full formula breakdown), `TRADE` (validation result and Vault totals), `DECAY`, `ALERT`, `GUI`, `STORE`, `CMD`. Every number the engine used is in the line, so any result can be re-derived from the log alone — that is how the plugin's own test suite verifies it. Leave debug off in normal operation.
 
+## PlaceholderAPI
+
+If [PlaceholderAPI](https://github.com/PlaceholderAPI/PlaceholderAPI) is installed, LiveMarket registers the `%livemarket_...%` expansion — use the prices anywhere placeholders work (scoreboards, chat formats, holograms, signs). Item names are case-insensitive (`wheat`, `GOLD_INGOT`); unknown items are left unparsed.
+
+| Placeholder | Returns |
+| --- | --- |
+| `%livemarket_price_<item>%` | Current price (2 decimals) |
+| `%livemarket_base_<item>%` | Base price |
+| `%livemarket_floor_<item>%` / `%livemarket_ceiling_<item>%` | Price floor / ceiling |
+| `%livemarket_change_<item>%` | Signed day change, e.g. `+17.14%` |
+| `%livemarket_trend_<item>%` | `▲` rising, `▼` falling, `—` flat |
+| `%livemarket_volume_<item>%` | Units traded today |
+| `%livemarket_top_<n>_item%` | Biggest mover today (name), e.g. `%livemarket_top_1_item%` |
+| `%livemarket_top_<n>_price%` / `%livemarket_top_<n>_change%` | That item's price / day change |
+| `%livemarket_count%` | Number of tradable items |
+
+PlaceholderAPI is an optional dependency: without it the plugin runs exactly the same, just without the placeholders.
+
 ## Building from source
 
 Requires JDK 21 and Maven 3.9+:
@@ -86,17 +102,16 @@ Requires JDK 21 and Maven 3.9+:
 mvn package
 ```
 
-The plugin jar lands in `target/LiveMarket-0.2.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
+The plugin jar lands in `target/LiveMarket-0.3.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
 
 ## Roadmap
 
-- PlaceholderAPI support for displaying prices
 - Optional MySQL persistence
 - More chart ranges in the GUI detail view
 
 ## Status
 
-**v0.2.0** — modernization release. Every mechanism is verified on Paper 1.21.11 with Vault + EssentialsX using the built-in debug mode: a bot player turned debug on in-game and ran the full matrix — formula-exact buys/sells, floor and ceiling clamps, the daily-volume guard dampening impact, fee math, not-enough-money / not-enough-items / inventory-full rejections with nothing charged, invalid input, sell-all, price alerts firing on a crossing, GUI navigation and trades, price decay toward base, and `/market debug` itself.
+**v0.3.0** — PlaceholderAPI support. Every mechanism is verified on Paper 1.21.11 with Vault + EssentialsX using the built-in debug mode (see v0.2.0), and the placeholders were verified live with a bot player parsing each one before and after a trade moved the price.
 
 ## License
 
