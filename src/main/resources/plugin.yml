@@ -5,6 +5,7 @@ api-version: '1.21'
 author: Abol
 description: Dynamic pricing plugin for survival Paper servers — prices move with supply and demand.
 depend: [Vault]
+softdepend: [PlaceholderAPI]
 commands:
   market:
     description: Open the market, or buy/sell/price-check items whose prices move with supply and demand.
