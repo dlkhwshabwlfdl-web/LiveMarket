@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 — 2026-11-19
+
+Crash-safe persistence, chart ranges, per-item volatility, and a trading pause.
+
+- **Crash-safe persistence.** `data.yml` is now written atomically (temp
+  file, then an atomic move), the previous file is kept as
+  `data.yml.bak`, and saves are sequenced so a stale async snapshot can
+  never overwrite a newer one. If `data.yml` is unreadable at startup,
+  the plugin restores from `data.yml.bak` with a console warning instead
+  of silently resetting every price.
+- **Chart ranges in the GUI.** The item detail view's clock button cycles
+  the price chart through the last 9, 25, or 50 recorded points (capped
+  by how much history exists); the sparkline follows the same range.
+  Price decay now records a history point whenever it actually moves a
+  price, so charts also show the drift between trades.
+- **Per-item volatility.** Any item in `config.yml` can override the
+  global pricing pressure with its own `pressure-k` and `max-move`
+  values — make diamonds sluggish and wheat wild, per item.
+- **Admin trading pause.** `/market pause` and `/market resume`
+  (admin) freeze all buying and selling while leaving browsing and
+  price checks open; `settings.trading-enabled: false` starts the
+  server paused.
+- Verified end-to-end on Paper 1.21.11 + Vault + EssentialsX +
+  PlaceholderAPI with a bot player: global vs per-item pricing math,
+  GUI range button, pause blocking buys and `sellall` while price
+  queries still answer, prices surviving a restart, and a deliberately
+  corrupted `data.yml` restored from `data.yml.bak` (WHEAT 5.0 and
+  DIAMOND 120.24 recovered exactly).
+
 ## 0.3.0 — 2026-11-14
 
 PlaceholderAPI support.

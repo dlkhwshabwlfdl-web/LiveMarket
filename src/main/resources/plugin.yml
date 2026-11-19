@@ -9,7 +9,7 @@ softdepend: [PlaceholderAPI]
 commands:
   market:
     description: Open the market, or buy/sell/price-check items whose prices move with supply and demand.
-    usage: /market [buy|sell|sellall|price|top|alert|alerts|reload|setprice|reset]
+    usage: /market [buy|sell|sellall|price|top|alert|alerts|pause|resume|reload|setprice|reset]
     aliases: [lm]
 permissions:
   livemarket.use:
