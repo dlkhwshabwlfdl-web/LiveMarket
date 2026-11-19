@@ -3,19 +3,31 @@ package me.abol.livemarket;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.bukkit.Material;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * Persists live prices, price history, daily volumes and player alerts to
  * {@code data.yml}. Saves are serialized on the calling thread and written
  * from an async task, so the main thread never does file I/O.
+ *
+ * <p>Writes are crash-safe: the snapshot goes to {@code data.yml.tmp}
+ * first, the previous file is kept as {@code data.yml.bak}, and the temp
+ * file is then moved over {@code data.yml} atomically — a crash mid-save
+ * can never leave a torn file behind. If {@code data.yml} is unreadable
+ * at load time, the backup is used instead. Writes carry a sequence
+ * number and are performed under a lock, so a stale async snapshot can
+ * never overwrite a newer one.
  */
 public final class DataStore {
 
@@ -26,22 +38,38 @@ public final class DataStore {
     private final PriceEngine engine;
     private final Debug debug;
     private final File file;
+    private final File backupFile;
+    private final File tempFile;
     private final Map<UUID, List<Alert>> alerts = new HashMap<>();
     private volatile boolean dirty = false;
+    private final Object writeLock = new Object();
+    private final AtomicLong saveSequence = new AtomicLong();
+    private long lastWrittenSeq = 0;
 
     public DataStore(LiveMarket plugin, PriceEngine engine, Debug debug) {
         this.plugin = plugin;
         this.engine = engine;
         this.debug = debug;
         this.file = new File(plugin.getDataFolder(), "data.yml");
+        this.backupFile = new File(plugin.getDataFolder(), "data.yml.bak");
+        this.tempFile = new File(plugin.getDataFolder(), "data.yml.tmp");
     }
 
     public void load() {
-        if (!file.exists()) {
+        if (!file.exists() && !backupFile.exists()) {
             debug.log("STORE", "load skipped — no data.yml yet (fresh start)");
             return;
         }
-        YamlConfiguration data = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration data = tryLoad(file);
+        if (data == null && backupFile.exists()) {
+            plugin.getLogger().warning("data.yml is unreadable — restoring from data.yml.bak.");
+            data = tryLoad(backupFile);
+        }
+        if (data == null) {
+            plugin.getLogger().severe("Could not read data.yml or its backup — starting fresh. "
+                    + "Prices and alerts were reset; the corrupt files were left on disk.");
+            return;
+        }
         engine.restoreDay(data.getString("day"));
         var prices = data.getConfigurationSection("prices");
         if (prices != null) {
@@ -64,6 +92,9 @@ public final class DataStore {
                     state.history.clear();
                     for (double point : history.getDoubleList(key)) {
                         state.history.addLast(point);
+                    }
+                    while (state.history.size() > engine.historySize()) {
+                        state.history.removeFirst();
                     }
                 }
             }
@@ -129,30 +160,20 @@ public final class DataStore {
     /** Serialize now (cheap, in memory); write the file asynchronously. */
     public void saveAsync() {
         dirty = false;
-        YamlConfiguration data = new YamlConfiguration();
-        data.set("day", engine.currentDay());
-        for (Map.Entry<Material, PriceEngine.ItemState> entry : engine.allStates().entrySet()) {
-            String name = entry.getKey().name();
-            PriceEngine.ItemState state = entry.getValue();
-            data.set("prices." + name, state.price);
-            data.set("history." + name, new ArrayList<>(state.history));
-            data.set("day-start." + name, state.dayStartPrice);
-            data.set("daily-volume." + name, state.dailyVolume);
-        }
-        for (Map.Entry<UUID, List<Alert>> entry : alerts.entrySet()) {
-            List<String> encoded = new ArrayList<>();
-            for (Alert alert : entry.getValue()) {
-                encoded.add(alert.material().name() + "|" + alert.above() + "|" + alert.target());
-            }
-            data.set("alerts." + entry.getKey(), encoded);
-        }
-        String text = data.saveToString();
+        String text = serialize();
+        long seq = saveSequence.incrementAndGet();
         debug.log("STORE", "save scheduled bytes=" + text.length() + " items=" + engine.allStates().size());
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                plugin.getLogger().warning("Could not save data.yml: " + e.getMessage());
+            synchronized (writeLock) {
+                if (seq <= lastWrittenSeq) {
+                    return; // a newer snapshot already landed — never go backwards
+                }
+                try {
+                    writeAtomically(text);
+                    lastWrittenSeq = seq;
+                } catch (IOException e) {
+                    plugin.getLogger().warning("Could not save data.yml: " + e.getMessage());
+                }
             }
         });
     }
@@ -160,6 +181,19 @@ public final class DataStore {
     /** Final save on shutdown — synchronous, complete (prices + alerts). */
     public void saveNow() {
         dirty = false;
+        String text = serialize();
+        synchronized (writeLock) {
+            try {
+                writeAtomically(text);
+                // Any async save still in flight is now stale by definition.
+                lastWrittenSeq = saveSequence.incrementAndGet();
+            } catch (IOException e) {
+                plugin.getLogger().warning("Could not save data.yml on shutdown: " + e.getMessage());
+            }
+        }
+    }
+
+    private String serialize() {
         YamlConfiguration data = new YamlConfiguration();
         data.set("day", engine.currentDay());
         for (Map.Entry<Material, PriceEngine.ItemState> entry : engine.allStates().entrySet()) {
@@ -177,10 +211,39 @@ public final class DataStore {
             }
             data.set("alerts." + entry.getKey(), encoded);
         }
+        return data.saveToString();
+    }
+
+    /**
+     * Write via a temp file, keep the previous file as the backup, then
+     * move the temp file over data.yml (atomically where supported), so
+     * readers only ever see a complete snapshot.
+     */
+    private void writeAtomically(String text) throws IOException {
+        Files.writeString(tempFile.toPath(), text, StandardCharsets.UTF_8);
+        if (file.exists()) {
+            Files.copy(file.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
         try {
-            data.save(file);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not save data.yml on shutdown: " + e.getMessage());
+            Files.move(tempFile.toPath(), file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /** Load one file, returning null (with a log line) when it cannot be parsed. */
+    private YamlConfiguration tryLoad(File source) {
+        if (!source.exists()) {
+            return null;
+        }
+        try {
+            YamlConfiguration data = new YamlConfiguration();
+            data.load(source);
+            return data;
+        } catch (IOException | InvalidConfigurationException e) {
+            plugin.getLogger().warning("Failed to parse " + source.getName() + ": " + e.getMessage());
+            return null;
         }
     }
 
