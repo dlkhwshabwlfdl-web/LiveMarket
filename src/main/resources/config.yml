@@ -8,6 +8,11 @@ settings:
   # for analysis in the server log. Can also be toggled live with
   # /market debug on|off (admin). Leave off in normal operation.
   debug: false
+  # Master switch for trading. When false, prices still move and players
+  # can browse, check prices and set alerts — but nobody can buy or sell.
+  # Admins can flip it live with /market pause and /market resume; a
+  # /market reload re-applies this value.
+  trading-enabled: true
   # Saturation constant of the pricing formula: a trade of this many units
   # reaches half of the maximum per-trade price impact.
   pressure-k: 48
@@ -26,6 +31,10 @@ settings:
 
 # Tradable items. material = Bukkit material name; base/floor/ceiling are
 # prices per single unit in your economy's currency.
+# Optional per-item volatility: an item may also set pressure-k and/or
+# max-move to override the global formula for that item only — e.g. a
+# calmer DIAMOND: { category: Mining, base: 120.0, floor: 30.0,
+# ceiling: 480.0, pressure-k: 96, max-move: 0.15 }.
 items:
   WHEAT:        { category: Farming,   base: 2.0,   floor: 0.5,   ceiling: 8.0 }
   CARROT:       { category: Farming,   base: 1.5,   floor: 0.4,   ceiling: 6.0 }

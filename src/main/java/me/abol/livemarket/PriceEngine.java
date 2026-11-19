@@ -33,13 +33,19 @@ public final class PriceEngine {
         public final double base;
         public final double floor;
         public final double ceiling;
+        /** Formula constants for this item (per-item override or the global setting). */
+        public final double pressureK;
+        public final double maxMove;
 
-        ItemDef(Material material, String category, double base, double floor, double ceiling) {
+        ItemDef(Material material, String category, double base, double floor, double ceiling,
+                double pressureK, double maxMove) {
             this.material = material;
             this.category = category;
             this.base = base;
             this.floor = floor;
             this.ceiling = ceiling;
+            this.pressureK = pressureK;
+            this.maxMove = maxMove;
         }
     }
 
@@ -98,7 +104,12 @@ public final class PriceEngine {
                 double floor = Math.max(0.01, s.getDouble("floor", base / 4));
                 double ceiling = Math.max(floor, s.getDouble("ceiling", base * 4));
                 base = Math.min(ceiling, Math.max(floor, base));
-                fresh.put(material, new ItemDef(material, s.getString("category", "Misc"), base, floor, ceiling));
+                // Optional per-item volatility: pressure-k / max-move override
+                // the global settings for this item only.
+                double itemK = Math.max(1, s.getDouble("pressure-k", pressureK));
+                double itemMove = Math.min(0.95, Math.max(0.01, s.getDouble("max-move", maxMove)));
+                fresh.put(material, new ItemDef(material, s.getString("category", "Misc"),
+                        base, floor, ceiling, itemK, itemMove));
             }
         }
         defs.clear();
@@ -124,7 +135,15 @@ public final class PriceEngine {
 
     public double price(Material material) {
         ItemState state = states.get(material);
-        return state != null ? state.price : defs.get(material).base;
+        if (state != null) {
+            return state.price;
+        }
+        ItemDef def = defs.get(material);
+        return def != null ? def.base : 0;
+    }
+
+    public int historySize() {
+        return historySize;
     }
 
     public double taxRate() {
@@ -142,8 +161,8 @@ public final class PriceEngine {
         if (state == null || def == null || amount <= 0) {
             return;
         }
-        double fraction = (double) amount / ((double) amount + pressureK);
-        double move = maxMove * fraction;
+        double fraction = (double) amount / ((double) amount + def.pressureK);
+        double move = def.maxMove * fraction;
         boolean guard = state.dailyVolume > dailyVolumeGuard;
         if (guard) {
             move *= impactBeyondGuard;
@@ -156,7 +175,8 @@ public final class PriceEngine {
         state.dailyVolume += amount;
         if (debug != null) {
             debug.log("PRICE", "item=" + material.name() + " side=" + (buy ? "BUY" : "SELL")
-                    + " amount=" + amount + " frac=" + Debug.f(fraction)
+                    + " amount=" + amount + " k=" + Debug.f(def.pressureK)
+                    + " cap=" + Debug.f(def.maxMove) + " frac=" + Debug.f(fraction)
                     + " movePct=" + Debug.pct(buy ? move : -move)
                     + " before=" + Debug.f(before) + " raw=" + Debug.f(raw)
                     + " after=" + Debug.f(state.price) + " clamped=" + clamped
@@ -182,6 +202,10 @@ public final class PriceEngine {
                 double next = state.price + gap * decayPerMinute;
                 double applied = clamp(next, def) - state.price;
                 state.price = clamp(next, def);
+                if (applied != 0) {
+                    // Record the recovery on the chart, not just trades.
+                    recordHistory(state);
+                }
                 adjusted++;
                 if (Math.abs(applied) > Math.abs(biggestMove)) {
                     biggestMove = applied;
@@ -215,6 +239,10 @@ public final class PriceEngine {
 
     private void setPrice(ItemState state, ItemDef def, double newPrice) {
         state.price = clamp(newPrice, def);
+        recordHistory(state);
+    }
+
+    private void recordHistory(ItemState state) {
         state.history.addLast(state.price);
         while (state.history.size() > historySize) {
             state.history.removeFirst();

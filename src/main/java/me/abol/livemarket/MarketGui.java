@@ -1,7 +1,10 @@
 package me.abol.livemarket;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -28,6 +31,16 @@ public final class MarketGui implements Listener {
     private final PriceEngine engine;
     private final MarketManager manager;
     private final Debug debug;
+
+    /** Chart ranges the detail view can show, cycled with the range button. */
+    private static final int[] CHART_RANGES = {9, 25, 50};
+    private final Map<UUID, Integer> chartRangeChoice = new HashMap<>();
+
+    /** The player's chosen chart range, capped by the configured history size. */
+    private int chartRange(Player player) {
+        int chosen = CHART_RANGES[chartRangeChoice.getOrDefault(player.getUniqueId(), 0)];
+        return Math.min(chosen, engine.historySize());
+    }
 
     public MarketGui(LiveMarket plugin, PriceEngine engine, MarketManager manager, Debug debug) {
         this.plugin = plugin;
@@ -134,14 +147,22 @@ public final class MarketGui implements Listener {
                 "volume", String.valueOf(engine.state(material).dailyVolume)));
         lore.add(msgComp("gui.range-line",
                 "floor", Msg.money(def.floor), "ceiling", Msg.money(def.ceiling)));
-        lore.add(msgComp("gui.history-line", "chart", sparkline(material)));
+        int range = chartRange(player);
+        lore.add(msgComp("gui.history-line", "chart", sparkline(material, range)));
         lore.add(msgComp("gui.your-balance",
                 "balance", Msg.money(manager.economy().getBalance(player))));
         meta.lore(lore);
         info.setItemMeta(meta);
         inv.setItem(4, info);
 
-        drawChart(inv, material);
+        drawChart(inv, material, range);
+
+        ItemStack rangeButton = new ItemStack(Material.CLOCK);
+        ItemMeta rangeMeta = rangeButton.getItemMeta();
+        rangeMeta.displayName(msgComp("gui.range-button", "range", String.valueOf(range)));
+        rangeMeta.lore(List.of(msgComp("gui.range-hint")));
+        rangeButton.setItemMeta(rangeMeta);
+        inv.setItem(40, rangeButton);
 
         int[] amounts = {1, 8, 32, 64};
         double unit = engine.price(material);
@@ -167,14 +188,26 @@ public final class MarketGui implements Listener {
         player.openInventory(inv);
     }
 
-    /** Last 9 price points as columns of panes, newest on the right. */
-    private void drawChart(Inventory inv, Material material) {
-        List<Double> points = new ArrayList<>(engine.state(material).history);
-        if (points.size() > 9) {
-            points = points.subList(points.size() - 9, points.size());
+    /**
+     * Price history as columns of panes, newest on the right. The chart has
+     * nine columns; when the selected range holds more points than that,
+     * the points are bucketed — each column shows the last value of its
+     * bucket — so a 25- or 50-point range still reads as one clean curve.
+     */
+    private void drawChart(Inventory inv, Material material, int range) {
+        List<Double> all = new ArrayList<>(engine.state(material).history);
+        if (all.size() > range) {
+            all = all.subList(all.size() - range, all.size());
         }
-        if (points.isEmpty()) {
+        if (all.isEmpty()) {
             return;
+        }
+        int cols = Math.min(9, all.size());
+        List<Double> points = new ArrayList<>();
+        for (int c = 0; c < cols; c++) {
+            int from = c * all.size() / cols;
+            int to = Math.max(from + 1, (c + 1) * all.size() / cols);
+            points.add(all.get(Math.min(to, all.size()) - 1));
         }
         double min = points.stream().mapToDouble(Double::doubleValue).min().orElse(0);
         double max = points.stream().mapToDouble(Double::doubleValue).max().orElse(1);
@@ -193,10 +226,18 @@ public final class MarketGui implements Listener {
         }
     }
 
-    private String sparkline(Material material) {
+    private String sparkline(Material material, int range) {
         List<Double> points = new ArrayList<>(engine.state(material).history);
+        if (points.size() > range) {
+            points = points.subList(points.size() - range, points.size());
+        }
         if (points.size() > 16) {
-            points = points.subList(points.size() - 16, points.size());
+            // Sample evenly so the lore line stays one short row of blocks.
+            List<Double> sampled = new ArrayList<>();
+            for (int i = 0; i < 16; i++) {
+                sampled.add(points.get(i * points.size() / 16));
+            }
+            points = sampled;
         }
         if (points.isEmpty()) {
             return "—";
@@ -257,6 +298,13 @@ public final class MarketGui implements Listener {
             return;
         }
         DetailHolder detail = (DetailHolder) holder;
+        if (slot == 40) {
+            int next = (chartRangeChoice.getOrDefault(player.getUniqueId(), 0) + 1) % CHART_RANGES.length;
+            chartRangeChoice.put(player.getUniqueId(), next);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 1.0f);
+            openDetail(player, detail.material);
+            return;
+        }
         if (slot == 49) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.6f, 0.9f);
             openShop(player);
