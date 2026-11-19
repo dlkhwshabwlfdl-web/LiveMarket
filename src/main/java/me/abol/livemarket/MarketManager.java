@@ -23,6 +23,7 @@ public final class MarketManager {
     private final DataStore store;
     private final Economy economy;
     private final Debug debug;
+    private volatile boolean paused = false;
 
     public MarketManager(LiveMarket plugin, PriceEngine engine, DataStore store, Economy economy, Debug debug) {
         this.plugin = plugin;
@@ -36,8 +37,17 @@ public final class MarketManager {
         return economy;
     }
 
+    /** Admin kill-switch: while paused, prices still move but nobody can trade. */
+    public boolean isPaused() {
+        return paused;
+    }
+
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+    }
+
     public enum Result {
-        OK, NO_PERMISSION, NOT_ENOUGH_MONEY, NOT_ENOUGH_ITEMS, INVENTORY_FULL, ECONOMY_ERROR
+        OK, NO_PERMISSION, NOT_ENOUGH_MONEY, NOT_ENOUGH_ITEMS, INVENTORY_FULL, ECONOMY_ERROR, TRADING_PAUSED
     }
 
     public record TradeOutcome(Result result, double total, double newPrice) {}
@@ -46,6 +56,10 @@ public final class MarketManager {
         double unit = engine.price(material);
         double cost = unit * amount;
         String who = "player=" + player.getName() + " item=" + material.name() + " side=BUY amount=" + amount;
+        if (paused) {
+            debug.log("TRADE", who + " result=TRADING_PAUSED");
+            return new TradeOutcome(Result.TRADING_PAUSED, 0, unit);
+        }
         if (!player.hasPermission("livemarket.sell")) {
             debug.log("TRADE", who + " result=NO_PERMISSION");
             return new TradeOutcome(Result.NO_PERMISSION, 0, unit);
@@ -76,6 +90,10 @@ public final class MarketManager {
 
     public TradeOutcome sell(Player player, Material material, int amount) {
         String who = "player=" + player.getName() + " item=" + material.name() + " side=SELL amount=" + amount;
+        if (paused) {
+            debug.log("TRADE", who + " result=TRADING_PAUSED");
+            return new TradeOutcome(Result.TRADING_PAUSED, 0, engine.price(material));
+        }
         if (!player.hasPermission("livemarket.sell")) {
             debug.log("TRADE", who + " result=NO_PERMISSION");
             return new TradeOutcome(Result.NO_PERMISSION, 0, engine.price(material));

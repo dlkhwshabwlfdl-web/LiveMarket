@@ -52,6 +52,16 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
             case "top" -> top(sender);
             case "alert" -> alert(sender, args);
             case "alerts" -> alerts(sender);
+            case "pause" -> admin(sender, () -> {
+                manager.setPaused(true);
+                plugin.getLogger().info("Admin " + sender.getName() + " paused trading.");
+                msg.send(sender, "pause-done");
+            });
+            case "resume" -> admin(sender, () -> {
+                manager.setPaused(false);
+                plugin.getLogger().info("Admin " + sender.getName() + " resumed trading.");
+                msg.send(sender, "resume-done");
+            });
             case "reload" -> admin(sender, () -> {
                 plugin.reloadAll();
                 msg.send(sender, "reloaded");
@@ -108,6 +118,10 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
         }
         if (!player.hasPermission("livemarket.sell")) {
             msg.send(sender, "no-permission");
+            return;
+        }
+        if (manager.isPaused()) {
+            msg.send(player, "trading-paused");
             return;
         }
         double total = manager.sellAll(player);
@@ -376,6 +390,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
                     "item", item);
             case INVENTORY_FULL -> msg.send(player, "inventory-full");
             case ECONOMY_ERROR -> msg.send(player, "economy-error");
+            case TRADING_PAUSED -> msg.send(player, "trading-paused");
         }
     }
 
@@ -384,7 +399,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
             for (String sub : List.of("buy", "sell", "sellall", "price", "top", "alert", "alerts",
-                    "reload", "setprice", "reset", "debug", "help")) {
+                    "pause", "resume", "reload", "setprice", "reset", "debug", "help")) {
                 if (sub.startsWith(args[0].toLowerCase(Locale.ROOT))) {
                     out.add(sub);
                 }

@@ -49,6 +49,11 @@ public final class LiveMarket extends JavaPlugin {
             return;
         }
         manager = new MarketManager(this, engine, store, economy, debug);
+        manager.setPaused(!getConfig().getBoolean("settings.trading-enabled", true));
+        if (manager.isPaused()) {
+            getLogger().info("Trading starts PAUSED (settings.trading-enabled: false) — "
+                    + "an admin can resume it with /market resume.");
+        }
         gui = new MarketGui(this, engine, manager, debug);
 
         MarketCommand command = new MarketCommand(this, engine, manager, store, gui);
@@ -127,6 +132,11 @@ public final class LiveMarket extends JavaPlugin {
         reloadConfig();
         msg.reload();
         engine.loadConfig(this);
+        // The config is the source of truth on reload: a live /market pause
+        // ends here if the config enables trading (and vice versa).
+        if (manager != null) {
+            manager.setPaused(!getConfig().getBoolean("settings.trading-enabled", true));
+        }
         store.markDirty();
     }
 
