@@ -7,7 +7,7 @@
 
     <groupId>me.abol</groupId>
     <artifactId>LiveMarket</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
     <packaging>jar</packaging>
     <name>LiveMarket</name>
     <description>Dynamic pricing plugin for survival Paper servers — prices move with supply and demand.</description>
@@ -53,6 +53,13 @@
             <version>2.12.3</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Shaded into the jar (see maven-shade-plugin below): the plugin
+             ships the driver, so servers need only a reachable database. -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.4.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -65,6 +72,28 @@
                     <source>21</source>
                     <target>21</target>
                 </configuration>
+            </plugin>
+            <!-- Shade only the MySQL driver into the plugin jar; Paper,
+                 Vault and PlaceholderAPI stay provided (the server has them). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.mysql:mysql-connector-j</include>
+                                </includes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
         <resources>

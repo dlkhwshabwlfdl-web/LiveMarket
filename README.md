@@ -22,7 +22,7 @@ All player-facing text is modern [MiniMessage](https://docs.advntr.dev/minimessa
 ## Installation
 
 1. You need a Paper 1.21.x server, Java 21, [Vault](https://www.spigotmc.org/resources/vault.34315/), and any economy plugin that provides a Vault economy (EssentialsX works).
-2. Drop `LiveMarket-0.4.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
+2. Drop `LiveMarket-0.5.0.jar` into `plugins/` and start the server. If Vault or an economy provider is missing, LiveMarket logs a clear error and disables itself instead of running half-broken.
 3. Edit `plugins/LiveMarket/config.yml` (items, prices, formula constants) and `messages.yml` (every player-facing string), then run `/market reload`.
 
 ## Commands & permissions
@@ -61,7 +61,25 @@ move = max-move × n / (n + pressure-k)
 - Sales pay `price × (1 − tax-rate)`; the default fee is 5%.
 - Once an item's total traded volume for the day passes `daily-volume-guard` (default 10,000 units), further price impact is multiplied by `impact-beyond-guard` (default 0.25) until midnight.
 
-Trades execute at the price shown before the trade; the impact lands right after. Prices, history, daily volumes and alerts persist in `plugins/LiveMarket/data.yml` across restarts, and saves happen off the main thread. Saves are crash-safe: each snapshot is written to a temp file and moved into place atomically, the previous file is kept as `data.yml.bak`, and if `data.yml` is ever unreadable the plugin restores from that backup instead of wiping the market.
+Trades execute at the price shown before the trade; the impact lands right after. Prices, history, daily volumes and alerts persist across restarts, and saves happen off the main thread. By default they live in `plugins/LiveMarket/data.yml` (crash-safe: each snapshot is written to a temp file and moved into place atomically, the previous file is kept as `data.yml.bak`, and if `data.yml` is ever unreadable the plugin restores from that backup instead of wiping the market).
+
+## MySQL storage (optional)
+
+For networks where several servers should share one market, point LiveMarket at a MySQL or MariaDB database instead of the file:
+
+```yaml
+storage:
+  type: mysql
+  mysql:
+    host: localhost
+    port: 3306
+    database: livemarket
+    username: livemarket
+    password: "change-me"
+    table-prefix: lm_
+```
+
+The driver is built into the plugin jar — nothing extra to install on the server. Tables (`lm_meta`, `lm_prices`, `lm_alerts`) are created automatically on first start. Switching an existing server is safe: when the tables are empty but a `data.yml` exists, its prices and alerts are migrated into the database once. If the database cannot be reached, LiveMarket logs an error and keeps running on `data.yml` instead of refusing to start.
 
 ## Configuration
 
@@ -104,15 +122,16 @@ Requires JDK 21 and Maven 3.9+:
 mvn package
 ```
 
-The plugin jar lands in `target/LiveMarket-0.4.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.)
+The plugin jar lands in `target/LiveMarket-0.5.0.jar`. (The project uses Maven like its sibling plugins MusicBot and ModelFramework.) The MySQL driver is shaded into the jar by the Maven Shade plugin, so the built jar is self-contained.
 
 ## Roadmap
 
-- Optional MySQL persistence
+- Player trade history (`/market history`)
+- Per-player price alerts already persist; a web dashboard is a maybe
 
 ## Status
 
-**v0.4.0** — Crash-safe persistence, GUI chart ranges, per-item volatility overrides, and an admin trading pause. Verified end-to-end on Paper 1.21.11 with Vault + EssentialsX + PlaceholderAPI using the built-in debug mode and a bot player: pricing math (global and per-item), the pause switch, restart persistence, and recovery from a corrupted `data.yml` via the automatic `data.yml.bak` backup.
+**v0.5.0** — MySQL/MariaDB storage backend (optional, `storage.type: mysql`), with one-time migration from `data.yml`, automatic table creation, and fallback to the file when the database is unreachable. Storage is now a `Storage` interface with `YamlStore` and `MySqlStore` backends sharing one in-memory alert implementation. Verified end-to-end on Paper 1.21.11 with Vault + EssentialsX + PlaceholderAPI against a real MariaDB 10.11 server using the built-in debug mode and a bot player: exact `data.yml` migration (WHEAT 6.6296, DIAMOND 120.7025, alert row), formula-exact trades on MySQL, restart restores from MySQL (unit price 7.7661 = stored value), a stopped database falls back to `data.yml` with a clear error while trades keep working, and MySQL resumes with its own state afterwards (7.94, not the fallback file's 7.77).
 
 ## License
 

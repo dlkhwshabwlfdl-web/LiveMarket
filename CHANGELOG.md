@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.5.0 — 2026-11-21
+
+MySQL/MariaDB storage backend (optional).
+
+- **MySQL storage.** Set `storage.type: mysql` in `config.yml` and point
+  `storage.mysql` at a MySQL or MariaDB database; every server that
+  points at the same database shares one market state. The driver
+  (Connector/J 8.4.0) is shaded into the plugin jar, so there is nothing
+  extra to install on the server, and the three tables (`lm_meta`,
+  `lm_prices`, `lm_alerts`) are created automatically on first start.
+- **One-time migration.** When the tables are empty but a `data.yml`
+  already exists, its prices, history and alerts are copied into the
+  database once, so switching backends never loses market state.
+- **Fallback, not failure.** If the database cannot be reached at
+  startup, LiveMarket logs an error and keeps running on `data.yml`
+  instead of refusing to start. A failed save logs a warning and
+  retries on the next scheduled save.
+- **Storage refactor.** Persistence is now a `Storage` interface with
+  `YamlStore` (the crash-safe `data.yml` backend, unchanged behaviour)
+  and `MySqlStore` backends, sharing one in-memory alert implementation
+  (`AbstractStore`). The YAML path is untouched: existing `config.yml`
+  and `data.yml` files keep working, and `storage.type` defaults to
+  `yaml`.
+- Verified end-to-end on Paper 1.21.11 + Vault + EssentialsX +
+  PlaceholderAPI against a real MariaDB 10.11 server, with a bot
+  player and the built-in debug mode: the `data.yml` migration restores
+  exact prices (WHEAT 6.6296, DIAMOND 120.7025) and the alert row;
+  trades on MySQL move prices formula-exactly (buy 64 WHEAT at 6.6296
+  → 7.77); a restart restores the MySQL prices (buy unit 7.7661 =
+  stored value, not base); killing the database logs a clear error and
+  falls back to `data.yml` while trades keep working; restarting the
+  database resumes MySQL with its own state (7.94, not the fallback
+  file's 7.77). The YAML backend was regression-tested in the same
+  session (exact restore across restart, all bot checks pass). One
+  environment quirk found during testing, not a plugin bug: on this VM
+  Java's default dual-stack networking garbles the MySQL handshake
+  (the sandbox IPv6 mesh), so the test server is launched with
+  `-Djava.net.preferIPv4Stack=true`; ordinary servers don't need it.
+
 ## 0.4.0 — 2026-11-19
 
 Crash-safe persistence, chart ranges, per-item volatility, and a trading pause.
