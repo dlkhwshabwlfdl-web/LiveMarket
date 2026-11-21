@@ -29,6 +29,26 @@ settings:
   # How many price points of history to keep per item.
   history-size: 50
 
+# Storage backend: where prices, history and alerts live.
+# yaml (default): plugins/LiveMarket/data.yml — crash-safe, no setup.
+# mysql: a MySQL/MariaDB database — one shared market state across every
+# server in a network that points at the same database. The MySQL driver
+# is built into the plugin jar, so nothing extra needs installing.
+# If mysql is selected but the database cannot be reached, LiveMarket
+# logs an error and keeps running on data.yml instead of refusing to start.
+storage:
+  type: yaml
+  mysql:
+    host: localhost
+    port: 3306
+    database: livemarket
+    username: root
+    password: ""
+    # Tables are created automatically as <prefix>meta, <prefix>prices
+    # and <prefix>alerts. Change the prefix only to share one database
+    # between two separate markets.
+    table-prefix: lm_
+
 # Tradable items. material = Bukkit material name; base/floor/ceiling are
 # prices per single unit in your economy's currency.
 # Optional per-item volatility: an item may also set pressure-k and/or
