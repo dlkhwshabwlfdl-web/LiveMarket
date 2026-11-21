@@ -14,7 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * <p>The main class only wires things together: the {@link PriceEngine}
  * holds the pricing math, {@link MarketManager} executes trades through
- * Vault, {@link DataStore} persists state, and the GUI/command classes are
+ * Vault, {@link Storage} persists state, and the GUI/command classes are
  * thin front-ends over those three.
  */
 public final class LiveMarket extends JavaPlugin {
@@ -22,7 +22,7 @@ public final class LiveMarket extends JavaPlugin {
     private Msg msg;
     private Debug debug;
     private PriceEngine engine;
-    private DataStore store;
+    private Storage store;
     private MarketManager manager;
     private MarketGui gui;
 
@@ -38,7 +38,7 @@ public final class LiveMarket extends JavaPlugin {
         engine = new PriceEngine();
         engine.setDebug(debug);
         engine.loadConfig(this);
-        store = new DataStore(this, engine, debug);
+        store = createStore();
         store.load();
 
         Economy economy = setupEconomy();
@@ -102,6 +102,30 @@ public final class LiveMarket extends JavaPlugin {
         }
     }
 
+    /**
+     * Pick the storage backend from {@code storage.type} in config.yml.
+     * MySQL is tried first when selected; when the database cannot be
+     * reached the plugin logs an error and keeps running on data.yml
+     * instead of refusing to start — prices still save, just locally.
+     */
+    private Storage createStore() {
+        String type = getConfig().getString("storage.type", "yaml");
+        if ("mysql".equalsIgnoreCase(type)) {
+            try {
+                MySqlStore mysql = new MySqlStore(this, engine, debug);
+                mysql.connect();
+                getLogger().info("Storage: MySQL " + mysql.describe());
+                return mysql;
+            } catch (Exception e) {
+                getLogger().severe("MySQL storage unavailable (" + e.getMessage()
+                        + ") — falling back to data.yml. Check storage.mysql in config.yml.");
+            }
+        } else if (!"yaml".equalsIgnoreCase(type)) {
+            getLogger().warning("Unknown storage.type '" + type + "' — using yaml (data.yml).");
+        }
+        return new YamlStore(this, engine, debug);
+    }
+
     private Economy setupEconomy() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) {
             return null;
@@ -115,7 +139,7 @@ public final class LiveMarket extends JavaPlugin {
     public void checkAlerts(Material material) {
         double price = engine.price(material);
         for (Player player : getServer().getOnlinePlayers()) {
-            for (DataStore.Alert fired : store.collectTriggered(player.getUniqueId(), material, price)) {
+            for (Storage.Alert fired : store.collectTriggered(player.getUniqueId(), material, price)) {
                 debug.log("ALERT", "FIRED player=" + player.getName() + " item=" + material.name()
                         + " condition=" + (fired.above() ? "above" : "below")
                         + " target=" + Debug.f(fired.target()) + " price=" + Debug.f(price));

@@ -16,11 +16,11 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
     private final LiveMarket plugin;
     private final PriceEngine engine;
     private final MarketManager manager;
-    private final DataStore store;
+    private final Storage store;
     private final MarketGui gui;
 
     public MarketCommand(LiveMarket plugin, PriceEngine engine, MarketManager manager,
-                         DataStore store, MarketGui gui) {
+                         Storage store, MarketGui gui) {
         this.plugin = plugin;
         this.engine = engine;
         this.manager = manager;
@@ -229,7 +229,7 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
             msg.send(player, "alert-usage");
             return;
         }
-        store.addAlert(player.getUniqueId(), new DataStore.Alert(material, above, target));
+        store.addAlert(player.getUniqueId(), new Storage.Alert(material, above, target));
         store.saveAsync();
         msg.send(player, "alert-set",
                 "item", MarketGui.pretty(material),
@@ -243,13 +243,13 @@ public final class MarketCommand implements CommandExecutor, TabCompleter {
             msg.send(sender, "player-only");
             return;
         }
-        List<DataStore.Alert> list = store.alertsOf(player.getUniqueId());
+        List<Storage.Alert> list = store.alertsOf(player.getUniqueId());
         if (list.isEmpty()) {
             msg.send(player, "alerts-empty");
             return;
         }
         msg.send(player, "alerts-header");
-        for (DataStore.Alert alert : list) {
+        for (Storage.Alert alert : list) {
             msg.send(player, "alert-set",
                     "item", MarketGui.pretty(alert.material()),
                     "condition", alert.above() ? "above" : "below",

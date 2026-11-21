@@ -303,7 +303,7 @@ public final class PriceEngine {
         }
     }
 
-    // ---- persistence hooks (used by DataStore) ----
+    // ---- persistence hooks (used by the storage backends) ----
 
     public String currentDay() {
         return currentDay;

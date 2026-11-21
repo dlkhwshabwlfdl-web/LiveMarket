@@ -20,12 +20,12 @@ public final class MarketManager {
 
     private final LiveMarket plugin;
     private final PriceEngine engine;
-    private final DataStore store;
+    private final Storage store;
     private final Economy economy;
     private final Debug debug;
     private volatile boolean paused = false;
 
-    public MarketManager(LiveMarket plugin, PriceEngine engine, DataStore store, Economy economy, Debug debug) {
+    public MarketManager(LiveMarket plugin, PriceEngine engine, Storage store, Economy economy, Debug debug) {
         this.plugin = plugin;
         this.engine = engine;
         this.store = store;
